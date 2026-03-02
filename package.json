@@ -31,6 +31,7 @@
   "build": {
     "appId": "com.crafly.desktop",
     "productName": "Crafly Desktop",
+    "afterSign": "scripts/notarize.cjs",
     "directories": {
       "output": "release"
     },
@@ -51,6 +52,7 @@
     ],
     "mac": {
       "category": "public.app-category.video",
+      "hardenedRuntime": false,
       "extraResources": [
         {
           "from": "bin/darwin",
