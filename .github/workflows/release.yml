@@ -45,7 +45,7 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # ad-hoc 서명 → "손상됨" 대신 "확인되지 않은 개발자"로 뜨게 함
+      # ad-hoc 서명 후 DMG만 다시 패킹 (electron-builder의 드래그 설치 레이아웃 유지)
       - name: Ad-hoc sign macOS app and repack DMG
         if: matrix.artifact == 'mac'
         run: |
@@ -53,10 +53,18 @@ jobs:
           if [ -z "$APP_PATH" ]; then echo "::error::.app not found"; exit 1; fi
           codesign --force --deep --sign - "$APP_PATH"
           DMG_NAME=$(ls release/*.dmg 2>/dev/null | head -1)
-          if [ -n "$DMG_NAME" ]; then
-            rm -f "$DMG_NAME"
-            hdiutil create -volname "Crafly Desktop" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
-          fi
+          if [ -z "$DMG_NAME" ]; then exit 0; fi
+          # 원본 DMG 레이아웃(드래그→Applications) 유지한 채 서명된 .app만 교체
+          mkdir -p /tmp/crafly_mount release/dmg_layout
+          hdiutil attach "$DMG_NAME" -mountpoint /tmp/crafly_mount -nobrowse -readonly
+          cp -R /tmp/crafly_mount/* release/dmg_layout/
+          hdiutil detach /tmp/crafly_mount -force
+          APP_NAME=$(basename "$APP_PATH")
+          rm -rf "release/dmg_layout/$APP_NAME"
+          cp -R "$APP_PATH" "release/dmg_layout/$APP_NAME"
+          rm -f "$DMG_NAME"
+          hdiutil create -volname "Crafly Desktop" -srcfolder release/dmg_layout -ov -format UDZO "$DMG_NAME"
+          rm -rf release/dmg_layout /tmp/crafly_mount
 
       - name: Package Electron app (Windows)
         if: matrix.artifact == 'win'
