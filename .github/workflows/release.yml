@@ -32,11 +32,37 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Package Electron app
-        run: npx electron-builder --publish never
+      - name: Package Electron app (macOS)
+        if: matrix.artifact == 'mac'
+        run: npx electron-builder --mac --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # 서명 없이 빌드 → ad-hoc 서명 단계에서 처리
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # ad-hoc 서명 → "손상됨" 대신 "확인되지 않은 개발자"로 뜨게 함
+      - name: Ad-hoc sign macOS app and repack DMG
+        if: matrix.artifact == 'mac'
+        run: |
+          APP_PATH=$(find release -name "*.app" -type d -maxdepth 3 | head -1)
+          if [ -z "$APP_PATH" ]; then echo "::error::.app not found"; exit 1; fi
+          codesign --force --deep --sign - "$APP_PATH"
+          DMG_NAME=$(ls release/*.dmg 2>/dev/null | head -1)
+          if [ -n "$DMG_NAME" ]; then
+            rm -f "$DMG_NAME"
+            hdiutil create -volname "Crafly Desktop" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+          fi
+
+      - name: Package Electron app (Windows)
+        if: matrix.artifact == 'win'
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
