@@ -1,0 +1,84 @@
+{
+  "name": "crafly-desktop",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Crafly Desktop Renderer - Local video rendering for Crafly",
+  "author": "Crafly",
+  "main": "dist/electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "postinstall": "node scripts/sync-ffmpeg-bundle.cjs",
+    "prepare:ffmpeg": "node scripts/sync-ffmpeg-bundle.cjs",
+    "generate-icon": "node scripts/generate-icon.cjs",
+    "build": "tsc -p tsconfig.json",
+    "start": "electron .",
+    "dev": "npm run build && electron .",
+    "pack:dir": "npm run build && electron-builder --dir",
+    "pack:mac": "npm run build && electron-builder --mac",
+    "pack:win": "npm run build && electron-builder --win",
+    "release": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "electron": "^37.0.0",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.34.5",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "appId": "com.crafly.desktop",
+    "productName": "Crafly Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/**/*",
+      "assets/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/fonts",
+        "to": "fonts"
+      }
+    ],
+    "asarUnpack": [
+      "dist/electron/render-worker.js"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "extraResources": [
+        {
+          "from": "bin/darwin",
+          "to": "bin/darwin"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "extraResources": [
+        {
+          "from": "bin/win32",
+          "to": "bin/win32"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
+    "icon": "assets/icon.png",
+    "publish": {
+      "provider": "github",
+      "owner": "CraflyAI",
+      "repo": "crafly_desktop"
+    }
+  }
+}

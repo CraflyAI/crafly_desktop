@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crafly Render Progress</title>
+    <style>
+      :root {
+        --bg-app: #0f1115;
+        --bg-panel: #161b22;
+        --bg-input: #0d1117;
+        --border: #30363d;
+        --text-primary: #f0f6fc;
+        --text-secondary: #8b949e;
+        --accent: #ff99cc;
+        --accent-hover: #ff80bf;
+        --success: #2ea043;
+        --error: #da3633;
+        --font-main: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background-color: var(--bg-app);
+        color: var(--text-primary);
+        font-family: var(--font-main);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 10px;
+      }
+
+      .card {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .logo-icon {
+        width: 20px;
+        height: 20px;
+        background-image: url('./logo.svg');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+
+      .status-badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: var(--bg-input);
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .status-badge.active { color: var(--accent); background-color: rgba(255, 153, 204, 0.1); }
+      .status-badge.done { color: var(--success); background-color: rgba(46, 160, 67, 0.1); }
+      .status-badge.error { color: var(--error); background-color: rgba(218, 54, 51, 0.1); }
+
+      .job-name {
+        font-size: 13px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* 미리보기 영역 (16:9 비율 고정) */
+      .preview-area {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        flex-shrink: 0;
+        background-color: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .preview-area .placeholder {
+        font-size: 11px;
+        color: var(--text-secondary);
+        opacity: 0.6;
+      }
+
+      .preview-area img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: none;
+      }
+
+      .preview-area img.visible {
+        display: block;
+      }
+
+      .progress-area {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .progress-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .progress-track {
+        height: 6px;
+        background-color: var(--bg-input);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), #ffb3d9);
+        transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .message {
+        font-size: 11px;
+        color: var(--text-secondary);
+        min-height: 1.4em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        flex: 1;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background-color: var(--bg-input);
+        color: var(--text-primary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      button:hover:not(:disabled) {
+        background-color: #21262d;
+        border-color: #8b949e;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button.primary {
+        background-color: var(--accent);
+        color: #1a1a1a;
+        border-color: transparent;
+      }
+
+      button.primary:hover:not(:disabled) {
+        background-color: var(--accent-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="header">
+        <div class="title">
+          <div class="logo-icon"></div>
+          <span>Crafly Render</span>
+        </div>
+        <div id="statusBadge" class="status-badge">대기 중</div>
+      </div>
+
+      <div id="jobName" class="job-name"></div>
+
+      <!-- 렌더 미리보기 -->
+      <div class="preview-area">
+        <span id="previewPlaceholder" class="placeholder">렌더링이 시작되면 미리보기가 표시됩니다</span>
+        <img id="previewImg" alt="렌더 미리보기" />
+      </div>
+
+      <div class="progress-area">
+        <div class="progress-info">
+          <span id="phaseText">준비</span>
+          <span id="percentText">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="progressBar" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div id="messageText" class="message">...</div>
+
+      <div class="actions">
+        <button id="cancelBtn">취소</button>
+        <button id="openBtn" class="primary" disabled>결과 보기</button>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      let latestOutputDir = "";
+
+      // IPC API
+      const api = window.craflyDesktop;
+
+      if (!api) {
+        $("messageText").textContent = "API 연결 실패";
+      }
+
+      // Initial Health Check
+      api?.health?.().then((health) => {
+        if (health?.outputDir) latestOutputDir = health.outputDir;
+      }).catch(() => {});
+
+      // Event Listeners
+      api?.onIncomingBridgeJob?.((data) => {
+        if (!data) return;
+        if (data.jobName) {
+          $("jobName").textContent = data.jobName;
+          $("statusBadge").textContent = "작업 수신";
+          $("statusBadge").className = "status-badge active";
+        }
+      });
+
+      // 렌더 미리보기 스냅샷 수신
+      api?.onRenderSnapshot?.((data) => {
+        if (!data?.data) return;
+        const img = $("previewImg");
+        const placeholder = $("previewPlaceholder");
+        img.src = data.data;
+        img.classList.add("visible");
+        if (placeholder) placeholder.style.display = "none";
+      });
+
+      api?.onRenderProgress?.((data) => {
+        const progress = Math.max(0, Math.min(100, Number(data?.progress || 0)));
+        const phase = String(data?.phase || "render");
+        const message = String(data?.message || "");
+
+        $("progressBar").style.width = `${progress}%`;
+        $("percentText").textContent = `${Math.round(progress)}%`;
+        $("messageText").textContent = message;
+
+        let phaseDisplay = "진행 중";
+        let badgeClass = "status-badge active";
+        let badgeText = "진행 중";
+
+        if (phase === "prepare") {
+          phaseDisplay = "준비 중";
+        } else if (phase === "render") {
+          phaseDisplay = "렌더링 중";
+        } else if (phase === "mux") {
+          phaseDisplay = "마무리 중";
+        } else if (phase === "done") {
+          phaseDisplay = "완료";
+          badgeClass = "status-badge done";
+          badgeText = "성공";
+          $("cancelBtn").disabled = true;
+          $("openBtn").disabled = !latestOutputDir;
+        } else if (phase === "error") {
+          phaseDisplay = "오류";
+          badgeClass = "status-badge error";
+          badgeText = "실패";
+          $("cancelBtn").disabled = false;
+        }
+
+        $("phaseText").textContent = phaseDisplay;
+        $("statusBadge").className = badgeClass;
+        $("statusBadge").textContent = badgeText;
+      });
+
+      $("cancelBtn").addEventListener("click", async () => {
+        $("cancelBtn").disabled = true;
+        try {
+          const res = await api?.cancelRender?.();
+          if (!res?.ok) throw new Error(res?.error || "취소 실패");
+          $("messageText").textContent = res.cancelled ? "렌더링 취소됨" : "진행 중인 작업 없음";
+          $("statusBadge").className = "status-badge error";
+          $("statusBadge").textContent = "취소됨";
+        } catch (e) {
+          $("messageText").textContent = e?.message || "취소 요청 실패";
+          $("cancelBtn").disabled = false;
+        }
+      });
+
+      $("openBtn").addEventListener("click", async () => {
+        if (!latestOutputDir) return;
+        try {
+          await api?.openPath?.(latestOutputDir);
+        } catch {}
+      });
+    </script>
+  </body>
+</html>

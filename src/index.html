@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crafly Desktop Renderer</title>
+    <style>
+      :root {
+        --bg-app: #0f1115;
+        --bg-panel: #161b22;
+        --bg-input: #0d1117;
+        --border: #30363d;
+        --text-primary: #f0f6fc;
+        --text-secondary: #8b949e;
+        --accent: #ff99cc;
+        --accent-hover: #ff80bf;
+        --success: #2ea043;
+        --error: #da3633;
+        --font-main: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background-color: var(--bg-app);
+        color: var(--text-primary);
+        font-family: var(--font-main);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Header */
+      header {
+        height: 60px;
+        background-color: var(--bg-panel);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        justify-content: space-between;
+        -webkit-app-region: drag; /* Drag the window */
+      }
+
+      .logo-area {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo-mark {
+        height: 28px;
+        width: auto;
+        display: block;
+        object-fit: contain;
+      }
+
+      .app-title {
+        font-weight: 700;
+        font-size: 17px;
+        letter-spacing: -0.5px;
+        color: var(--text-primary);
+      }
+
+      .status-indicator {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--text-secondary);
+      }
+      .status-dot.active { background-color: var(--success); box-shadow: 0 0 8px rgba(46, 160, 67, 0.4); }
+
+      /* Main Content */
+      main {
+        flex: 1;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        overflow-y: auto;
+      }
+
+      .status-card {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        width: 100%;
+        max-width: 480px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+
+      .status-icon-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(255, 153, 204, 0.15), rgba(255, 153, 204, 0.05));
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+      
+      .status-icon-large .star-svg {
+        width: 40px;
+        height: 40px;
+      }
+      
+      .status-icon-large.waiting::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 2px solid var(--accent);
+        opacity: 0.4;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.5; }
+        70% { transform: scale(1.2); opacity: 0; }
+        100% { transform: scale(1); opacity: 0; }
+      }
+
+      .status-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .status-desc {
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      .current-job-info {
+        background-color: var(--bg-input);
+        border-radius: 12px;
+        padding: 16px;
+        width: 100%;
+        display: none; /* Hidden by default */
+        text-align: left;
+      }
+      .current-job-info.active { display: block; }
+
+      .job-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+      .job-value { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      .progress-track {
+        height: 6px;
+        background-color: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 12px;
+      }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), #ffb3d9);
+        transition: width 0.3s ease;
+      }
+
+      /* Quick Actions Grid */
+      .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        width: 100%;
+        max-width: 560px;
+      }
+
+      .action-card {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+      }
+
+      .action-card:hover {
+        background-color: #21262d;
+        border-color: var(--text-secondary);
+        transform: translateY(-2px);
+      }
+
+      .action-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background-color: rgba(255, 153, 204, 0.1);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .action-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .output-dir-line {
+        width: 100%;
+        max-width: 480px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 4px;
+      }
+
+      /* Footer */
+      footer {
+        padding: 16px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-secondary);
+        border-top: 1px solid var(--border);
+        background-color: var(--bg-panel);
+      }
+
+      @media (max-width: 800px) {
+        .quick-actions { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-area">
+        <img src="./logo_spark.svg" alt="Crafly" class="logo-mark" />
+        <span class="app-title">Desktop</span>
+      </div>
+      <div class="status-indicator">
+        <div id="bridgeStatusDot" class="status-dot"></div>
+        <span id="bridgeStatusText">연결 대기 중...</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="status-card">
+        <div class="status-icon-large waiting">
+          <svg class="star-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="12 2 14.5 9.5 22 12 14.5 14.5 12 22 9.5 14.5 2 12 9.5 9.5 12 2"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="status-title" id="mainStatusTitle">작업 대기 중</h2>
+          <p class="status-desc" id="mainStatusDesc">Crafly 웹에서 렌더링 요청을 기다리고 있습니다.<br>이 앱을 켜두시면 자동으로 작업이 시작됩니다.</p>
+        </div>
+
+        <div id="currentJobPanel" class="current-job-info">
+          <div class="job-label">현재 작업</div>
+          <div id="currentJobName" class="job-value">-</div>
+          <div class="progress-track">
+            <div id="progressBar" class="progress-fill"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px; color:var(--text-secondary);">
+            <span id="progressPhase">준비 중</span>
+            <span id="progressPercent">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <div class="action-card" id="openDownloads">
+          <div class="action-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </div>
+          <span class="action-title">결과 폴더 열기</span>
+        </div>
+        <div class="action-card" id="goToWeb">
+          <div class="action-icon" style="background-color: rgba(56, 189, 248, 0.1); color: #38bdf8;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </div>
+          <span class="action-title">Crafly 웹으로 이동</span>
+        </div>
+        <div class="action-card" id="setOutputDir">
+          <div class="action-icon" style="background-color: rgba(255, 153, 204, 0.15); color: var(--accent);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8 15 3"></polyline></svg>
+          </div>
+          <span class="action-title">기본 저장 폴더 변경</span>
+        </div>
+      </div>
+
+      <div id="outputDirLine" class="output-dir-line" title="">저장 위치: -</div>
+
+    </main>
+
+    <footer>
+      <span id="appVersion">v0.1.0</span>
+      <span style="margin: 0 8px;">•</span>
+      <span id="ffmpegStatus">FFmpeg 확인 중...</span>
+    </footer>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const state = { health: null };
+
+      const log = (msg) => {
+        console.log(`[crafly] ${msg}`);
+      };
+
+      const setBridgeStatus = (active) => {
+        const dot = $("bridgeStatusDot");
+        const text = $("bridgeStatusText");
+        if (active) {
+          dot.classList.add("active");
+          text.textContent = "연결됨 (Port " + (state.health?.bridgePort || "-") + ")";
+          text.style.color = "var(--success)";
+        } else {
+          dot.classList.remove("active");
+          text.textContent = "연결 끊김";
+          text.style.color = "var(--text-secondary)";
+        }
+      };
+
+      // Actions
+      $("openDownloads").addEventListener("click", async () => {
+        const p = state.health?.outputDir;
+        if (!p) return;
+        await window.craflyDesktop.openPath(p);
+      });
+
+      $("goToWeb").addEventListener("click", async () => {
+        await window.craflyDesktop.openExternal("https://crafly.kr");
+      });
+
+      $("setOutputDir").addEventListener("click", async () => {
+        try {
+          const result = await window.craflyDesktop.setOutputDir();
+          if (result?.canceled) return;
+          if (!result?.ok) {
+            log("저장 폴더 변경 실패: " + (result?.error || ""));
+            return;
+          }
+          state.health = state.health ? { ...state.health, outputDir: result.outputDir } : { outputDir: result.outputDir };
+          updateOutputDirDisplay(result.outputDir);
+          log("기본 저장 폴더 변경됨: " + result.outputDir);
+        } catch (e) {
+          log("저장 폴더 변경 오류: " + (e?.message || e));
+        }
+      });
+
+      function updateOutputDirDisplay(dir) {
+        const el = $("outputDirLine");
+        if (!dir) { el.textContent = "저장 위치: -"; el.title = ""; return; }
+        el.textContent = "저장 위치: " + dir;
+        el.title = dir;
+      }
+
+      // Events
+      window.craflyDesktop.onIncomingBridgeJob((evt) => {
+        $("mainStatusTitle").textContent = "작업 수신됨";
+        $("mainStatusDesc").textContent = "렌더링을 준비하고 있습니다...";
+        
+        const panel = $("currentJobPanel");
+        panel.classList.add("active");
+        $("currentJobName").textContent = evt?.jobName || "제목 없음";
+        
+        log(`작업 수신: ${evt?.jobName}`);
+      });
+
+      window.craflyDesktop.onRenderProgress((evt) => {
+        const progress = Number(evt?.progress ?? 0);
+        const phase = evt?.phase || "render";
+        
+        const panel = $("currentJobPanel");
+        panel.classList.add("active");
+        
+        $("progressBar").style.width = `${progress}%`;
+        $("progressPercent").textContent = `${Math.round(progress)}%`;
+        
+        let phaseText = phase;
+        if (phase === "prepare") phaseText = "준비 중";
+        else if (phase === "render") phaseText = "렌더링 중";
+        else if (phase === "mux") phaseText = "마무리 중";
+        else if (phase === "done") {
+            phaseText = "완료됨";
+            $("mainStatusTitle").textContent = "작업 완료";
+            $("mainStatusDesc").textContent = "결과 폴더를 확인해주세요.";
+            setTimeout(() => {
+                 $("mainStatusTitle").textContent = "작업 대기 중";
+                 $("mainStatusDesc").innerHTML = "Crafly 웹에서 렌더링 요청을 기다리고 있습니다.<br>이 앱을 켜두시면 자동으로 작업이 시작됩니다.";
+                 panel.classList.remove("active");
+            }, 5000);
+        }
+        else if (phase === "error") {
+             phaseText = "오류 발생";
+             $("mainStatusTitle").textContent = "오류 발생";
+             $("mainStatusDesc").textContent = evt.message || "렌더링 중 문제가 발생했습니다.";
+        }
+        
+        $("progressPhase").textContent = phaseText;
+      });
+
+      // Init
+      window.craflyDesktop.health()
+        .then((health) => {
+          state.health = health;
+          setBridgeStatus(true);
+          $("appVersion").textContent = `v${health.version || "0.1.0"}`;
+          updateOutputDirDisplay(health?.outputDir);
+          
+          const ff = health.ffmpeg;
+          const ffEl = $("ffmpegStatus");
+          if (ff?.found) {
+            ffEl.textContent = "FFmpeg 준비됨";
+            ffEl.style.color = "var(--success)";
+          } else {
+            ffEl.textContent = "FFmpeg 미설치";
+            ffEl.style.color = "var(--error)";
+          }
+        })
+        .catch((err) => {
+          setBridgeStatus(false);
+          log(`Health check failed: ${err}`);
+        });
+
+    </script>
+  </body>
+</html>
