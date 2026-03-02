@@ -4,6 +4,7 @@ import * as fs from "node:fs/promises";
 import * as fssync from "node:fs";
 import * as http from "node:http";
 import { fork, ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 
 type LoadedJobSummary = {
   path: string;
@@ -17,6 +18,7 @@ let bridgeServer: http.Server | null = null;
 let activeRenderWorker: ChildProcess | null = null;
 let latestRenderProgress: { progress: number; phase: string; message: string } | null = null;
 const BRIDGE_PORT = 48231;
+const BRIDGE_TOKEN = randomBytes(24).toString("hex");
 
 // 브릿지 서버 CORS 허용 Origin 목록
 const ALLOWED_ORIGINS = new Set([
@@ -27,7 +29,7 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 
 function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true; // 브라우저가 아닌 직접 요청 (curl 등)
+  if (!origin) return false;
   return ALLOWED_ORIGINS.has(origin);
 }
 
@@ -36,9 +38,17 @@ function getCorsHeaders(origin: string | undefined): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Crafly-Bridge-Token",
     "Vary": "Origin",
   };
+}
+
+function hasValidBridgeToken(req: http.IncomingMessage): boolean {
+  const token = req.headers["x-crafly-bridge-token"];
+  if (Array.isArray(token)) {
+    return token.includes(BRIDGE_TOKEN);
+  }
+  return token === BRIDGE_TOKEN;
 }
 
 const PREFERENCES_FILE = "preferences.json";
@@ -522,12 +532,17 @@ function startBridgeServer() {
         bridgePort: BRIDGE_PORT,
         version: app.getVersion(),
         ffmpegFound: ffmpeg.found,
+        bridgeToken: BRIDGE_TOKEN,
       }, origin);
       return;
     }
 
     // 에셋 캐시 존재 확인 (웹에서 전송 전에 이미 있는지 체크)
     if (method === "POST" && url === "/asset/check") {
+      if (!hasValidBridgeToken(req)) {
+        sendJson(res, 401, { ok: false, error: "Unauthorized bridge token" }, origin);
+        return;
+      }
       const chunks: Buffer[] = [];
       req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
       req.on("end", () => {
@@ -555,6 +570,10 @@ function startBridgeServer() {
     }
 
     if (method === "POST" && url.startsWith("/asset")) {
+      if (!hasValidBridgeToken(req)) {
+        sendJson(res, 401, { ok: false, error: "Unauthorized bridge token" }, origin);
+        return;
+      }
       const requestUrl = new URL(url, `http://127.0.0.1:${BRIDGE_PORT}`);
       const key = (requestUrl.searchParams.get("key") || "").trim();
       const name = (requestUrl.searchParams.get("name") || "asset").trim();
@@ -602,6 +621,10 @@ function startBridgeServer() {
     }
 
     if (method === "POST" && url === "/render") {
+      if (!hasValidBridgeToken(req)) {
+        sendJson(res, 401, { ok: false, error: "Unauthorized bridge token" }, origin);
+        return;
+      }
       const chunks: Buffer[] = [];
       req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
       req.on("end", async () => {

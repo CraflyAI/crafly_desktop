@@ -53,6 +53,7 @@
     "mac": {
       "category": "public.app-category.video",
       "hardenedRuntime": false,
+      "identity": null,
       "extraResources": [
         {
           "from": "bin/darwin",
